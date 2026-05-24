@@ -1,0 +1,3 @@
+/* Shared global styles — mirrors styles.css from the vanilla app. */
+/* Import or copy styles.css content here, or use a CSS module per component. */
+@import url('../../styles.css');

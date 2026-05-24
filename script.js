@@ -1,7 +1,6 @@
-const SUPABASE_URL = 'https://supabase.com/dashboard/project/ntzwaaebnjubsohsarcv'; // Replace with your URL
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50endhYWVibmp1YnNvaHNhcmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NDQ3MTksImV4cCI6MjA5NTIyMDcxOX0.wS14WYwbKsM8zcrdnKNn7v2yOVjCxqKtBK6y_CxgO2A'; // Replace with your anon key
+// Main app logic with Supabase integration and localStorage fallback
+// Uses global `supabase` client created in supabaseClient.js
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const todoForm = document.getElementById('todo-form');
 const todoInput = document.getElementById('todo-input');
 const todoDateInput = document.getElementById('todo-date');
@@ -15,7 +14,12 @@ const categoryInput = document.getElementById('category-input');
 const categoryList = document.getElementById('category-list');
 const categorySelect = document.getElementById('category-select');
 const filterTabs = document.querySelectorAll('.filter-tabs .tab-button');
-const searchQueryInput = searchInput;
+const authForm = document.getElementById('auth-form');
+const authEmail = document.getElementById('auth-email');
+const sendLinkBtn = document.getElementById('send-link');
+const userInfo = document.getElementById('user-info');
+const userEmailSpan = document.getElementById('user-email');
+const signOutBtn = document.getElementById('sign-out');
 
 const TODO_STORAGE_KEY = 'simple-todo-list-todos';
 const CATEGORY_STORAGE_KEY = 'simple-todo-list-categories';
@@ -24,15 +28,9 @@ let categories = [];
 let activeCategoryId = 'all';
 let activeFilter = 'all';
 let searchQuery = '';
+let currentUser = null;
 
-function saveTodos() {
-  localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(todos));
-}
-
-function saveCategories() {
-  localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(categories));
-}
-
+// --- utility functions ---
 function formatDate(dateString) {
   if (!dateString) return '';
   const date = new Date(`${dateString}T00:00:00`);
@@ -53,12 +51,28 @@ function isFutureDate(dateString) {
   return date > today;
 }
 
-function updateStats(filteredTodos) {
-  const remaining = filteredTodos.filter(todo => !todo.completed).length;
-  const total = filteredTodos.length;
-  remainingCount.textContent = `${remaining} of ${total} tasks left`;
+// --- persistence helpers ---
+function saveLocalCategories() {
+  localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(categories));
 }
 
+function saveLocalTodos() {
+  localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(todos));
+}
+
+async function fetchRemoteCategories() {
+  const { data, error } = await window.supabase.from('categories').select('*').order('name', { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+async function fetchRemoteTodos() {
+  const { data, error } = await window.supabase.from('todos').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+// --- rendering ---
 function matchesSearch(todo) {
   return !searchQuery || todo.text.toLowerCase().includes(searchQuery.toLowerCase());
 }
@@ -82,11 +96,7 @@ function getFilteredTodos() {
 }
 
 function getCompletedTasks() {
-  return todos.filter(todo => {
-    if (!todo.completed) return false;
-    if (activeCategoryId !== 'all' && todo.categoryId !== activeCategoryId) return false;
-    return matchesSearch(todo);
-  });
+  return todos.filter(todo => todo.completed && (activeCategoryId === 'all' || todo.categoryId === activeCategoryId) && matchesSearch(todo));
 }
 
 function renderCategories() {
@@ -212,8 +222,112 @@ function renderTodos() {
   renderCompletedGroups();
 }
 
-function addTodo(text, categoryId, dueDate) {
+function updateStats(filteredTodos) {
+  const remaining = filteredTodos.filter(todo => !todo.completed).length;
+  const total = filteredTodos.length;
+  remainingCount.textContent = `${remaining} of ${total} tasks left`;
+}
+
+// --- CRUD operations with remote fallback ---
+async function loadData() {
+  if (window.supabase && currentUser) {
+    try {
+      const remoteCats = await fetchRemoteCategories();
+      categories = remoteCats.map(c => ({ id: c.id, name: c.name }));
+    } catch (err) {
+      console.warn('Failed to fetch categories from Supabase, using local', err);
+      const storedCategories = localStorage.getItem(CATEGORY_STORAGE_KEY);
+      categories = storedCategories ? JSON.parse(storedCategories) : [];
+    }
+
+    try {
+      const remoteTodos = await fetchRemoteTodos();
+      todos = remoteTodos.map(t => ({ id: t.id.toString(), text: t.text, completed: t.completed, categoryId: t.category_id, dueDate: t.due_date || '' }));
+    } catch (err) {
+      console.warn('Failed to fetch todos from Supabase, using local', err);
+      const stored = localStorage.getItem(TODO_STORAGE_KEY);
+      todos = stored ? JSON.parse(stored) : [];
+    }
+  } else {
+    const storedCategories = localStorage.getItem(CATEGORY_STORAGE_KEY);
+    categories = storedCategories ? JSON.parse(storedCategories) : [];
+
+    const stored = localStorage.getItem(TODO_STORAGE_KEY);
+    todos = stored ? JSON.parse(stored) : [];
+
+    if (!categories.length) {
+      categories = [
+        { id: 'inbox', name: 'Inbox' },
+        { id: 'work', name: 'Work' },
+        { id: 'personal', name: 'Personal' },
+      ];
+      saveLocalCategories();
+    }
+  }
+}
+
+async function addCategory(name) {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+
+  if (window.supabase && currentUser) {
+    const { data, error } = await window.supabase.from('categories').insert([{ name: trimmed }]).select();
+    if (error) {
+      console.error('Failed to create category', error);
+      return;
+    }
+    categories.push({ id: data[0].id, name: data[0].name });
+    renderCategories();
+    return;
+  }
+
+  categories.push({ id: Date.now().toString(), name: trimmed });
+  saveLocalCategories();
+  renderCategories();
+}
+
+async function removeCategory(id) {
+  if (window.supabase && currentUser) {
+    await window.supabase.from('todos').delete().eq('category_id', id);
+    await window.supabase.from('categories').delete().eq('id', id);
+    // reload remote data
+    await loadData();
+    renderCategories();
+    renderTodos();
+    return;
+  }
+
+  todos = todos.filter(todo => todo.categoryId !== id);
+  categories = categories.filter(category => category.id !== id);
+  if (activeCategoryId === id) activeCategoryId = 'all';
+  saveLocalCategories();
+  saveLocalTodos();
+  renderCategories();
+  renderTodos();
+}
+
+async function addTodo(text, categoryId, dueDate) {
   if (!text.trim() || !categoryId) return;
+
+  if (window.supabase && currentUser) {
+    const { data, error } = await window.supabase.from('todos').insert([{
+      user_id: currentUser.id,
+      text: text.trim(),
+      completed: false,
+      category_id: categoryId,
+      due_date: dueDate || null,
+    }]).select();
+
+    if (error) {
+      console.error('Failed to insert todo', error);
+      return;
+    }
+
+    const t = data[0];
+    todos.unshift({ id: t.id.toString(), text: t.text, completed: t.completed, categoryId: t.category_id, dueDate: t.due_date || '' });
+    renderTodos();
+    return;
+  }
 
   todos.unshift({
     id: Date.now().toString(),
@@ -223,47 +337,58 @@ function addTodo(text, categoryId, dueDate) {
     dueDate: dueDate || '',
   });
 
-  saveTodos();
+  saveLocalTodos();
   renderTodos();
 }
 
-function toggleTodo(id) {
-  todos = todos.map(todo => todo.id === id ? { ...todo, completed: !todo.completed } : todo);
-  saveTodos();
+async function toggleTodo(id) {
+  const todo = todos.find(t => t.id === id);
+  if (!todo) return;
+
+  if (window.supabase && currentUser) {
+    const { error } = await window.supabase.from('todos').update({ completed: !todo.completed }).eq('id', id);
+    if (error) {
+      console.error('Failed to toggle todo', error);
+      return;
+    }
+    todo.completed = !todo.completed;
+    renderTodos();
+    return;
+  }
+
+  todos = todos.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+  saveLocalTodos();
   renderTodos();
 }
 
-function removeTodo(id) {
+async function removeTodo(id) {
+  if (window.supabase && currentUser) {
+    await window.supabase.from('todos').delete().eq('id', id);
+    todos = todos.filter(t => t.id !== id);
+    renderTodos();
+    return;
+  }
+
   todos = todos.filter(todo => todo.id !== id);
-  saveTodos();
+  saveLocalTodos();
   renderTodos();
 }
 
-function clearCompleted() {
+async function clearCompleted() {
+  if (window.supabase && currentUser) {
+    await window.supabase.from('todos').delete().eq('completed', true).eq('user_id', currentUser.id);
+    // reload
+    await loadData();
+    renderTodos();
+    return;
+  }
+
   todos = todos.filter(todo => !todo.completed);
-  saveTodos();
+  saveLocalTodos();
   renderTodos();
 }
 
-function addCategory(name) {
-  const trimmed = name.trim();
-  if (!trimmed) return;
-
-  categories.push({ id: Date.now().toString(), name: trimmed });
-  saveCategories();
-  renderCategories();
-}
-
-function removeCategory(id) {
-  todos = todos.filter(todo => todo.categoryId !== id);
-  categories = categories.filter(category => category.id !== id);
-  if (activeCategoryId === id) activeCategoryId = 'all';
-  saveCategories();
-  saveTodos();
-  renderCategories();
-  renderTodos();
-}
-
+// --- category selection and filter ---
 function selectCategory(id) {
   activeCategoryId = id;
   renderCategories();
@@ -278,52 +403,80 @@ function setFilter(filterKey) {
   renderTodos();
 }
 
-function loadData() {
-  const storedTodos = localStorage.getItem(TODO_STORAGE_KEY);
-  const storedCategories = localStorage.getItem(CATEGORY_STORAGE_KEY);
-  categories = storedCategories ? JSON.parse(storedCategories) : [];
-  todos = storedTodos ? JSON.parse(storedTodos) : [];
+// --- auth ---
+async function handleAuthState() {
+  if (!window.supabase) return;
 
-  if (!categories.length) {
-    categories = [
-      { id: 'inbox', name: 'Inbox' },
-      { id: 'work', name: 'Work' },
-      { id: 'personal', name: 'Personal' },
-    ];
-    saveCategories();
+  const { data } = await window.supabase.auth.getUser();
+  currentUser = data?.user || null;
+
+  if (currentUser) {
+    userInfo.hidden = false;
+    userEmailSpan.textContent = currentUser.email;
+  } else {
+    userInfo.hidden = true;
+    userEmailSpan.textContent = '';
   }
 }
 
-todoForm.addEventListener('submit', event => {
-  event.preventDefault();
-  const taskText = todoInput.value;
-  const categoryId = categorySelect.value || categories[0]?.id;
-  const dueDate = todoDateInput.value;
-  addTodo(taskText, categoryId, dueDate);
-  todoInput.value = '';
-  todoDateInput.value = '';
-  todoInput.focus();
-});
+async function sendLoginLink(email) {
+  if (!window.supabase) return;
+  const { error } = await window.supabase.auth.signInWithOtp({ email });
+  if (error) {
+    alert('Failed to send login link: ' + error.message);
+    return;
+  }
+  alert('Check your email for a login link.');
+}
 
-searchQueryInput.addEventListener('input', event => {
-  searchQuery = event.target.value;
+// --- load / initialize ---
+searchInput.addEventListener('input', (e) => {
+  searchQuery = e.target.value;
   renderTodos();
 });
 
-categoryForm.addEventListener('submit', event => {
-  event.preventDefault();
-  addCategory(categoryInput.value);
-  categoryInput.value = '';
-  categoryInput.focus();
+sendLinkBtn.addEventListener('click', async (e) => {
+  const email = authEmail.value.trim();
+  if (!email) return alert('Enter your email');
+  await sendLoginLink(email);
 });
 
-clearCompletedButton.addEventListener('click', clearCompleted);
+signOutBtn.addEventListener('click', async () => {
+  if (!window.supabase) return;
+  await window.supabase.auth.signOut();
+  currentUser = null;
+  await loadData();
+  renderCategories();
+  renderTodos();
+  await handleAuthState();
+});
+
+categoryForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await addCategory(categoryInput.value);
+  categoryInput.value = '';
+});
+
+// wire filter tabs
 filterTabs.forEach(button => {
   button.addEventListener('click', () => setFilter(button.dataset.filter));
 });
 
-window.addEventListener('DOMContentLoaded', () => {
-  loadData();
+// initial load
+window.addEventListener('DOMContentLoaded', async () => {
+  // listen for auth changes
+  if (window.supabase) {
+    const { data: { subscription } } = window.supabase.auth.onAuthStateChange(async (_event, session) => {
+      currentUser = session?.user || null;
+      await handleAuthState();
+      await loadData();
+      renderCategories();
+      renderTodos();
+    });
+  }
+
+  await handleAuthState();
+  await loadData();
   renderCategories();
   renderTodos();
 });
