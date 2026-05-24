@@ -7,7 +7,22 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="app-shell">
+
+  <!-- ── LOGIN PAGE (shown by default, hidden after sign-in) ── -->
+  <div id="login-page">
+    <div class="login-card">
+      <h1>Todo List</h1>
+      <p>Sign in with a magic link to manage your tasks.</p>
+      <form id="auth-form" class="auth-form">
+        <input id="auth-email" type="email" placeholder="Your email address" autocomplete="email" required />
+        <button type="submit" id="send-link">Send login link</button>
+      </form>
+      <p id="auth-message" class="auth-message" hidden></p>
+    </div>
+  </div>
+
+  <!-- ── MAIN APP (hidden until signed in) ── -->
+  <main id="app-page" class="app-shell" hidden>
     <aside class="sidebar">
       <div class="sidebar-head">
         <div>
@@ -25,29 +40,14 @@
     </aside>
 
     <section class="todo-card">
-      <div class="card-header">
-        <div>
-          <h1>Todo List</h1>
-          <p>Choose a category and track today’s tasks.</p>
-        </div>
-      </div>
       <div class="card-header-row">
         <div class="card-header">
-          <div>
-            <h1>Todo List</h1>
-            <p>Choose a category and track today’s tasks.</p>
-          </div>
+          <h1>Todo List</h1>
+          <p>Choose a category and track today's tasks.</p>
         </div>
-
-        <div class="auth-area" id="auth-area">
-          <div id="user-info" class="user-info" hidden>
-            <span id="user-email"></span>
-            <button id="sign-out" type="button">Sign out</button>
-          </div>
-          <form id="auth-form" class="auth-form">
-            <input id="auth-email" type="email" placeholder="Your email" />
-            <button id="send-link" type="button">Send login link</button>
-          </form>
+        <div class="user-info" id="user-info">
+          <span id="user-email"></span>
+          <button id="sign-out" type="button">Sign out</button>
         </div>
       </div>
 
@@ -86,6 +86,7 @@
       </section>
     </section>
   </main>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script src="script.js"></script>

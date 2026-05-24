@@ -16,10 +16,11 @@ const categorySelect = document.getElementById('category-select');
 const filterTabs = document.querySelectorAll('.filter-tabs .tab-button');
 const authForm = document.getElementById('auth-form');
 const authEmail = document.getElementById('auth-email');
-const sendLinkBtn = document.getElementById('send-link');
-const userInfo = document.getElementById('user-info');
+const authMessage = document.getElementById('auth-message');
 const userEmailSpan = document.getElementById('user-email');
 const signOutBtn = document.getElementById('sign-out');
+const loginPage = document.getElementById('login-page');
+const appPage = document.getElementById('app-page');
 
 const TODO_STORAGE_KEY = 'simple-todo-list-todos';
 const CATEGORY_STORAGE_KEY = 'simple-todo-list-categories';
@@ -271,7 +272,7 @@ async function addCategory(name) {
   if (!trimmed) return;
 
   if (window.supabase && currentUser) {
-    const { data, error } = await window.supabase.from('categories').insert([{ name: trimmed }]).select();
+    const { data, error } = await window.supabase.from('categories').insert([{ name: trimmed, user_id: currentUser.id }]).select();
     if (error) {
       console.error('Failed to create category', error);
       return;
@@ -411,10 +412,12 @@ async function handleAuthState() {
   currentUser = data?.user || null;
 
   if (currentUser) {
-    userInfo.hidden = false;
+    loginPage.hidden = true;
+    appPage.hidden = false;
     userEmailSpan.textContent = currentUser.email;
   } else {
-    userInfo.hidden = true;
+    loginPage.hidden = false;
+    appPage.hidden = true;
     userEmailSpan.textContent = '';
   }
 }
@@ -426,10 +429,14 @@ async function sendLoginLink(email) {
     options: { emailRedirectTo: window.location.origin + window.location.pathname },
   });
   if (error) {
-    alert('Failed to send login link: ' + error.message);
+    authMessage.textContent = 'Error: ' + error.message;
+    authMessage.className = 'auth-message error';
+    authMessage.hidden = false;
     return;
   }
-  alert('Check your email for a login link.');
+  authMessage.textContent = 'Check your email for a login link.';
+  authMessage.className = 'auth-message';
+  authMessage.hidden = false;
 }
 
 // --- load / initialize ---
@@ -438,20 +445,28 @@ searchInput.addEventListener('input', (e) => {
   renderTodos();
 });
 
-sendLinkBtn.addEventListener('click', async (e) => {
+authForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
   const email = authEmail.value.trim();
-  if (!email) return alert('Enter your email');
+  if (!email) return;
   await sendLoginLink(email);
+});
+
+todoForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await addTodo(todoInput.value, categorySelect.value, todoDateInput.value);
+  todoInput.value = '';
+  todoDateInput.value = '';
 });
 
 signOutBtn.addEventListener('click', async () => {
   if (!window.supabase) return;
   await window.supabase.auth.signOut();
   currentUser = null;
-  await loadData();
-  renderCategories();
-  renderTodos();
-  await handleAuthState();
+  todos = [];
+  categories = [];
+  loginPage.hidden = false;
+  appPage.hidden = true;
 });
 
 categoryForm.addEventListener('submit', async (e) => {
