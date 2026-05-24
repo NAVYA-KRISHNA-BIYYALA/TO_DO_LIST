@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simple Todo List</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <div>
+          <p class="eyebrow">Organize</p>
+          <h2>Categories</h2>
+        </div>
+      </div>
+
+      <form id="category-form" class="category-form">
+        <input id="category-input" type="text" placeholder="New category" autocomplete="off" />
+        <button type="submit">Add</button>
+      </form>
+
+      <ul id="category-list" class="category-list"></ul>
+    </aside>
+
+    <section class="todo-card">
+      <div class="card-header">
+        <div>
+          <h1>Todo List</h1>
+          <p>Choose a category and track today’s tasks.</p>
+        </div>
+      </div>
+
+      <div class="search-row">
+        <input id="search-input" type="text" placeholder="Search tasks..." autocomplete="off" />
+      </div>
+
+      <form id="todo-form" class="todo-form">
+        <input id="todo-input" type="text" placeholder="Add a new task..." autocomplete="off" />
+        <select id="category-select"></select>
+        <input id="todo-date" type="date" />
+        <button type="submit">Add</button>
+      </form>
+
+      <div class="filter-tabs" role="tablist" aria-label="Task filters">
+        <button type="button" class="tab-button active" data-filter="all">All</button>
+        <button type="button" class="tab-button" data-filter="today">Today</button>
+        <button type="button" class="tab-button" data-filter="upcoming">Upcoming</button>
+      </div>
+
+      <div class="todo-stats">
+        <span id="remaining-count">0 tasks left</span>
+        <button id="clear-completed" type="button">Clear completed</button>
+      </div>
+
+      <ul id="todo-list" class="todo-list" aria-live="polite"></ul>
+
+      <section class="completed-section">
+        <div class="section-header">
+          <div>
+            <h2>Completed tasks</h2>
+            <p>Grouped by category so you can review what you finished.</p>
+          </div>
+        </div>
+        <div id="completed-groups" class="completed-groups"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
