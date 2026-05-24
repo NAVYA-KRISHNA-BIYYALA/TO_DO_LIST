@@ -1,3 +1,7 @@
+const SUPABASE_URL = 'https://supabase.com/dashboard/project/ntzwaaebnjubsohsarcv'; // Replace with your URL
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50endhYWVibmp1YnNvaHNhcmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NDQ3MTksImV4cCI6MjA5NTIyMDcxOX0.wS14WYwbKsM8zcrdnKNn7v2yOVjCxqKtBK6y_CxgO2A'; // Replace with your anon key
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const todoForm = document.getElementById('todo-form');
 const todoInput = document.getElementById('todo-input');
 const todoDateInput = document.getElementById('todo-date');
