@@ -421,7 +421,10 @@ async function handleAuthState() {
 
 async function sendLoginLink(email) {
   if (!window.supabase) return;
-  const { error } = await window.supabase.auth.signInWithOtp({ email });
+  const { error } = await window.supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname },
+  });
   if (error) {
     alert('Failed to send login link: ' + error.message);
     return;
