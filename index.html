@@ -7,6 +7,22 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+    <!-- Auth Container -->
+<div id="auth-container">
+    <form id="sign-up-form">
+        <h3>Sign Up</h3>
+        <input type="email" id="sign-up-email" placeholder="Email" required />
+        <input type="password" id="sign-up-password" placeholder="Password" required />
+        <button type="submit">Sign Up</button>
+    </form>
+    <form id="sign-in-form">
+        <h3>Log In</h3>
+        <input type="email" id="sign-in-email" placeholder="Email" required />
+        <input type="password" id="sign-in-password" placeholder="Password" required />
+        <button type="submit">Log In</button>
+    </form>
+    <button id="sign-out-button" style="display: none;">Sign Out</button>
+</div>
   <main class="app-shell">
     <aside class="sidebar">
       <div class="sidebar-head">
