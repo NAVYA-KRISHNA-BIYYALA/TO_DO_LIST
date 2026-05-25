@@ -429,7 +429,10 @@ async function sendLoginLink(email) {
     options: { emailRedirectTo: window.location.origin + window.location.pathname },
   });
   if (error) {
-    authMessage.textContent = 'Error: ' + error.message;
+    const isEmailError = /sending|email/i.test(error.message);
+    authMessage.textContent = isEmailError
+      ? 'Could not send the login link. If you requested one recently, please wait a few minutes and try again.'
+      : 'Error: ' + error.message;
     authMessage.className = 'auth-message error';
     authMessage.hidden = false;
     return;
